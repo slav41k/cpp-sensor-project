@@ -11,46 +11,40 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-    env:
-      BUILD_WRAPPER_OUT_DIR: build_wrapper_output_directory
     steps:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v3
-        with:
-          java-version: 17
-          distribution: 'zulu'
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake g++
 
-      # ПОМИЛКА БУЛА ТУТ. Виправлено на SonarSource/sonarcloud-action@v2
-      - name: Install sonar-scanner and build-wrapper
-        uses: SonarSource/sonarcloud-action@v2
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Cache SonarCloud build-wrapper
+        id: cache-build-wrapper
+        uses: actions/cache@v3
         with:
-          # Запускаємо build-wrapper
-          args: >
-            -Dsonar.cfamily.build-wrapper-output=${{ env.BUILD_WRAPPER_OUT_DIR }} 
-            -Dsonar.projectKey=slav41k_cpp-sensor-project 
-            -Dsonar.organization=slav41k 
-            -Dsonar.sources=. 
-            -Dsonar.exclusions="build/**,frontend/**"
-            -Dsonar.cxx.file.suffixes=.cpp,.h
-            -Dsonar.scanner.build-wrapper=true
-            -- COMMAND TO RUN BUILD-WRAPPER
-            cmake --build build/ --config Release
+          path: build-wrapper-output
+          key: ${{ runner.os }}-build-wrapper-cache-${{ github.sha }}
+          restore-keys: ${{ runner.os }}-build-wrapper-cache-
+
+      - name: Run build-wrapper and compile
         run: |
           mkdir build
           cmake -S . -B build
-          # build-wrapper тепер запускається у кроці з uses: sonarcloud-action@v2
-          /opt/sonarcloud/build-wrapper-linux-x86-64 --out-dir ${{ env.BUILD_WRAPPER_OUT_DIR }} cmake --build build/ --config Release
-
-      - name: Run sonar-scanner (After build-wrapper)
-        # Ми перенесли запуск sonar-scanner в попередній крок для спрощення, 
-        # але залишаємо цей, якщо потрібно для структури
-        # Щоб уникнути помилок, краще видалити або перевірити, чи він не дублює сканування.
-        run: echo "Skipping redundant Sonar Scanner step."
+          /opt/sonarcloud/build-wrapper-linux-x86-64 --out-dir build-wrapper-output cmake --build build/ --config Release
+        
+      - name: Run SonarCloud Analysis
+        uses: SonarSource/sonarcloud-action@v2
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          projectKey: slav41k_cpp-sensor-project
+          organization: slav41k
+          args: >
+            -Dsonar.cfamily.build-wrapper-output=build-wrapper-output 
+            -Dsonar.cxx.file.suffixes=.cpp,.h
+            -Dsonar.sources=.
+            -Dsonar.exclusions=build/**,frontend/**
 
