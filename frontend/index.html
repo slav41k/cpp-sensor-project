@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <title>Sensor Dashboard</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #e9ecef; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h1 { color: #2c3e50; text-align: center; margin-bottom: 25px; }
+        
+        .refresh-btn { 
+            display: block; width: 100%; max-width: 200px; margin: 0 auto 20px;
+            background-color: #007bff; color: white; padding: 12px; 
+            border: none; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; transition: background 0.3s;
+        }
+        .refresh-btn:hover { background-color: #0056b3; }
+
+        table { width: 100%; border-collapse: collapse; overflow: hidden; border-radius: 8px; }
+        th, td { padding: 15px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #343a40; color: white; text-transform: uppercase; font-size: 14px; letter-spacing: 1px; }
+        tr:nth-child(even) { background-color: #f8f9fa; }
+        tr:hover { background-color: #e2e6ea; }
+        
+        .status-ok { color: green; font-weight: bold; }
+        .status-warn { color: orange; font-weight: bold; }
+        .value { font-family: monospace; font-size: 1.1em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📡 IoT Sensor Dashboard</h1>
+        <button class="refresh-btn" onclick="loadData()">🔄 Отримати дані</button>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>ID Датчика</th>
+                    <th>Тип</th>
+                    <th>Значення</th>
+                    <th>Статус</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+                <tr><td colspan="4" style="text-align:center;">Очікування даних...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        async function loadData() {
+            const tableBody = document.getElementById('tableBody');
+            
+            try {
+                // Запит на C++ сервер
+                const response = await fetch('/api/');
+                if (!response.ok) throw new Error('Network error');
+                
+                const data = await response.json();
+                
+                tableBody.innerHTML = '';
+                data.forEach(sensor => {
+                    const row = `<tr>
+                        <td><strong>${sensor.id}</strong></td>
+                        <td>${sensor.type}</td>
+                        <td class="value">${sensor.value.toFixed(2)} ${sensor.unit}</td>
+                        <td class="${sensor.status === 'OK' ? 'status-ok' : ''}">${sensor.status}</td>
+                    </tr>`;
+                    tableBody.innerHTML += row;
+                });
+            } catch (error) {
+                tableBody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:red;">🔴 Немає зв'язку з C++ сервером</td></tr>`;
+            }
+        }
+        
+        // Автоматичне завантаження при старті
+        loadData();
+    </script>
+</body>
+</html>
