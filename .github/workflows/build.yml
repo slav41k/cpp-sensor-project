@@ -1,4 +1,4 @@
-name: Build, Wrap and Analyze (Final Logic)
+name: Build and Analyze (Manual Docker Setup)
 
 on:
   push:
@@ -16,33 +16,47 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Обов'язково встановлюємо Java для Sonar-Scanner і компілятори
+      # 1. Встановлюємо Java (обов'язково для Sonar Scanner) та компілятори
       - name: Install Dependencies
         uses: actions/setup-java@v3
         with:
           java-version: 17
           distribution: 'zulu'
-      - run: sudo apt-get update && sudo apt-get install -y cmake g++
+      - run: sudo apt-get update && sudo apt-get install -y cmake g++ openjdk-17-jdk curl unzip
 
-      # Готуємо обгортку, компілюємо та скануємо за один крок
-      - name: Build and Scan
-        uses: SonarSource/sonarcloud-action@v2
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        with:
-          projectKey: slav41k_cpp-sensor-project
-          organization: slav41k
-          # Команда, яку ми запускаємо для компіляції
-          args: >
-            -Dsonar.cfamily.build-wrapper-output=build-wrapper-output 
-            -Dsonar.cxx.file.suffixes=.cpp,.h
-            -Dsonar.sources=.
-            -Dsonar.exclusions=build/**,frontend/**
-            -Dsonar.analysis.mode=publish 
-          
+      # 2. Встановлюємо SonarScanner (вручну, як архів)
+      - name: Install Sonar Scanner
+        run: |
+          SONAR_SCANNER_URL="https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.7.0.2747-linux.zip"
+          curl -sSLo sonar-scanner.zip $SONAR_SCANNER_URL
+          unzip sonar-scanner.zip
+          export PATH="$PATH:$(pwd)/sonar-scanner-4.7.0.2747-linux/bin"
+
+      # 3. Встановлюємо Build Wrapper (вручну)
+      - name: Install Build Wrapper
+        run: |
+          BUILD_WRAPPER_URL="https://sonarcloud.io/static/cpp/build-wrapper-linux-x86.zip"
+          curl -sSLo build-wrapper.zip $BUILD_WRAPPER_URL
+          unzip build-wrapper.zip
+          export PATH="$PATH:$(pwd)/build-wrapper-linux-x86"
+
+      # 4. Запускаємо компіляцію під обгорткою
       - name: Run Build Wrapper
         run: |
           mkdir build
-          # build-wrapper знаходиться в системі завдяки SonarSource/sonarcloud-action
-          /opt/sonarcloud/build-wrapper-linux-x86-64 --out-dir build-wrapper-output cmake -S . -B build
+          build-wrapper-linux-x86-64 --out-dir build_wrapper_output_directory cmake -S . -B build
+
+      # 5. Запускаємо сканування (фінальний етап)
+      - name: Run Sonar Scanner Analysis
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          sonar-scanner \
+            -Dsonar.host.url="https://sonarcloud.io" \
+            -Dsonar.cfamily.build-wrapper-output="build_wrapper_output_directory" \
+            -Dsonar.projectKey=slav41k_cpp-sensor-project \
+            -Dsonar.organization=slav41k \
+            -Dsonar.sources=. \
+            -Dsonar.cxx.file.suffixes=.cpp,.h \
+            -Dsonar.exclusions=build/**,frontend/**
 
