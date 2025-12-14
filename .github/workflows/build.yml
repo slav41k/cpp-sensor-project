@@ -1,4 +1,4 @@
-name: Build and Analyze
+name: Build and Analyze C++
 
 on:
   push:
@@ -9,35 +9,23 @@ on:
 
 jobs:
   build:
-    name: Build
+    name: Build and Analysis
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
-      - name: Install build dependencies
+      - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake g++
+          sudo apt-get install -y cmake g++ openjdk-17-jdk
 
-      - name: Cache SonarCloud build-wrapper
-        id: cache-build-wrapper
-        uses: actions/cache@v3
-        with:
-          path: build-wrapper-output
-          key: ${{ runner.os }}-build-wrapper-cache-${{ github.sha }}
-          restore-keys: ${{ runner.os }}-build-wrapper-cache-
-
-      - name: Run build-wrapper and compile
-        run: |
-          mkdir build
-          cmake -S . -B build
-          /opt/sonarcloud/build-wrapper-linux-x86-64 --out-dir build-wrapper-output cmake --build build/ --config Release
-        
-      - name: Run SonarCloud Analysis
-        uses: SonarSource/sonarcloud-action@v2
+      # Цей Action автоматично встановлює build-wrapper та sonar-scanner
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           projectKey: slav41k_cpp-sensor-project
@@ -47,4 +35,24 @@ jobs:
             -Dsonar.cxx.file.suffixes=.cpp,.h
             -Dsonar.sources=.
             -Dsonar.exclusions=build/**,frontend/**
+
+      # Скомпілюємо та обернемо код після сканера
+      - name: Build and Wrap Code
+        run: |
+          /opt/sonarcloud/build-wrapper-linux-x86-64 --out-dir build-wrapper-output cmake -S . -B build
+
+      - name: SonarCloud Final Analysis
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          projectKey: slav41k_cpp-sensor-project
+          organization: slav41k
+          args: >
+            -Dsonar.cfamily.build-wrapper-output=build-wrapper-output
+            -Dsonar.cxx.file.suffixes=.cpp,.h
+            -Dsonar.sources=.
+            -Dsonar.exclusions=build/**,frontend/**
+            -Dsonar.analysis.mode=preview
 
