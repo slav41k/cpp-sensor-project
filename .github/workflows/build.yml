@@ -1,4 +1,4 @@
-name: Build and Analyze (FINAL - Export Commands)
+name: Build and Analyze (FINAL - Force Rebuild)
 
 on:
   push:
@@ -47,23 +47,30 @@ jobs:
           cd $GITHUB_WORKSPACE 
 
       # 4. Запускаємо компіляцію під обгорткою
-      - name: Run Build Wrapper and Compile
+      - name: Run Build Wrapper and Compile (FINAL LOGIC)
         run: |
           mkdir build
-          # Крок 1: Генерація проекту CMake з Export Commands (це критично для VS Code і Build Wrapper)
+          # Крок 1: Генерація проекту CMake (з прапорцем для VS Code)
           cmake -S . -B build -DCMAKE_CXX_STANDARD=17 -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
           
-          # Крок 2: Обертаємо команду збірки (найкращий синтаксис)
-          ./build-wrapper-linux-x86/build-wrapper-linux-x86-64 --out-dir build_wrapper_output_directory cmake --build build/
+          # Крок 2: Обертаємо MAKE clean all (це гарантує, що build-wrapper побачить компіляцію)
+          # Заходимо у папку збірки
+          cd build
+          
+          # ВИПРАВЛЕННЯ: Використовуємо make чи gmake залежно від системи, щоб гарантувати роботу.
+          # Оскільки на Ubuntu зазвичай є 'make', використовуємо його:
+          ../build-wrapper-linux-x86/build-wrapper-linux-x86-64 --out-dir build_wrapper_output_directory make clean all
+
+          cd $GITHUB_WORKSPACE
 
       # 5. Запускаємо сканування
       - name: Run Sonar Scanner Analysis
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
-          # Перевірка має спрацювати
+          # Перевірка має спрацювати, оскільки make clean all примусово перезібрав код
           if [ ! -f build_wrapper_output_directory/build-wrapper-output.json ]; then
-            echo "--- !!! КРИТИЧНА ПОМИЛКА: JSON-файл не створено. Build Wrapper не спрацював. !!! ---"
+            echo "--- !!! КРИТИЧНА ПОМИЛКА: JSON-файл не створено. Проблема у відсутності коду для аналізу. !!! ---"
             exit 1
           fi
 
