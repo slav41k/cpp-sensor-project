@@ -1,4 +1,4 @@
-name: Build and Analyze (FINAL FIX - Critical Build Fix)
+name: Build and Analyze (FINAL FIX - Verbose Build)
 
 on:
   push:
@@ -56,7 +56,8 @@ jobs:
           cmake -S . -B build -DCMAKE_CXX_STANDARD=17
           
           # Крок 2: Обертання КОМАНДИ ЗБІРКИ (Final fix)
-          ./build-wrapper-linux-x86/build-wrapper-linux-x86-64 --out-dir build_wrapper_output_directory cmake --build build/ --config Release
+          # ДОДАНО: VERBOSE=1 для виведення помилки лінкеру
+          ./build-wrapper-linux-x86/build-wrapper-linux-x86-64 --out-dir build_wrapper_output_directory cmake --build build/ --config Release -- VERBOSE=1
 
       # 5. Запускаємо сканування (фінальний етап)
       - name: Run Sonar Scanner Analysis
@@ -65,7 +66,7 @@ jobs:
         run: |
           # ПЕРЕВІРКА: Перевіряємо, чи був створений файл
           if [ ! -f build_wrapper_output_directory/build-wrapper-output.json ]; then
-            echo "--- !!! КРИТИЧНА ПОМИЛКА: JSON-файл не створено. Проблема з компілятором або кодом. !!! ---"
+            echo "--- !!! КРИТИЧНА ПОМИЛКА: JSON-файл не створено. Проблема в КОДІ. !!! ---"
             exit 1
           fi
 
