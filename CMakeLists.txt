@@ -9,13 +9,19 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 file(GLOB SOURCE_FILES
     "src/*.cpp"
     "src/*.h"
-    "main.cpp"
 )
+# main.cpp не потрібен для бібліотеки
 
-# 1. Основна ціль (executable)
-add_executable(app_run ${SOURCE_FILES})
+# 1. Основна ціль (СТАТИЧНА БІБЛІОТЕКА)
+# Бібліотека містить усі функції, які тестуються
+add_library(sensor_lib STATIC ${SOURCE_FILES})
 
-# 2. Цілі для тестів
+# 2. Фінальний виконуваний файл
+# Цей файл просто запускає main() і лінкується з бібліотекою
+add_executable(app_run main.cpp)
+target_link_libraries(app_run sensor_lib)
+
+# 3. Цілі для тестів
 enable_testing()
 
 # Явно включаємо файли з TESTS
@@ -29,11 +35,11 @@ find_package(GTest REQUIRED)
 # Додаємо ціль для тестів
 add_executable(run_tests ${TEST_FILES})
 
-# Лінкуємо тести з GTest, Gmock та основним кодом
+# Лінкуємо тести з GTest, Gmock та нашою новою БІБЛІОТЕКОЮ
 target_link_libraries(run_tests 
     GTest::gtest_main 
     GTest::gmock 
-    app_run
+    sensor_lib  <-- Тепер це бібліотека, помилки не буде!
 )
 
 # Додаємо тести в CMake
