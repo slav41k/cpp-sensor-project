@@ -1,4 +1,4 @@
-name: Build and Analyze (FINAL - Ninja Generator)
+name: Build and Analyze (FINAL - Absolute Path Ninja)
 
 on:
   push:
@@ -43,31 +43,40 @@ jobs:
           sudo mv lib/libgtest* /usr/lib/
           cd $GITHUB_WORKSPACE 
 
-      # 4. Запускаємо компіляцію під обгорткою (З Ninja)
+      # 4. Запускаємо компіляцію під обгорткою (З Ninja та АБСОЛЮТНИМИ ШЛЯХАМИ)
       - name: Run Build Wrapper and Compile (FINAL LOGIC)
         run: |
+          # 1. ВИДАЛЯЄМО стару папку build для чистої збірки
+          rm -rf build
           mkdir build
-          # Крок 1: Генерація проекту CMake з генератором Ninja
+
+          # 2. Визначаємо абсолютні шляхи
+          BUILD_WRAPPER_PATH="${{ github.workspace }}/build-wrapper-linux-x86/build-wrapper-linux-x86-64"
+          OUTPUT_DIR="${{ github.workspace }}/build_wrapper_output_directory"
+          
+          # 3. Генерація проекту CMake з генератором Ninja
           cmake -S . -B build -G "Ninja" -DCMAKE_CXX_STANDARD=17 -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON
           
-          # Крок 2: Обертаємо команду Ninja (Build Wrapper завжди бачить Ninja)
-          ./build-wrapper-linux-x86/build-wrapper-linux-x86-64 --out-dir build_wrapper_output_directory ninja -C build
+          # 4. Обертаємо команду Ninja з АБСОЛЮТНИМ ШЛЯХОМ
+          "$BUILD_WRAPPER_PATH" --out-dir "$OUTPUT_DIR" ninja -C build
 
       # 5. Запускаємо сканування
       - name: Run Sonar Scanner Analysis
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
-          # Перевірка
-          if [ ! -f build_wrapper_output_directory/build-wrapper-output.json ]; then
-            echo "--- !!! КРИТИЧНА ПОМИЛКА: JSON-файл не створено. NINJA не допоміг. !!! ---"
+          OUTPUT_DIR="${{ github.workspace }}/build_wrapper_output_directory"
+          
+          # Перевірка з використанням АБСОЛЮТНОГО ШЛЯХУ
+          if [ ! -f "$OUTPUT_DIR/build-wrapper-output.json" ]; then
+            echo "--- !!! КРИТИЧНА ПОМИЛКА: JSON-файл не створено. Build Wrapper заблокований. !!! ---"
             exit 1
           fi
 
           # Запуск Sonar Scanner
           ./sonar-scanner-4.7.0.2747-linux/bin/sonar-scanner \
             -Dsonar.host.url="https://sonarcloud.io" \
-            -Dsonar.cfamily.build-wrapper-output="build_wrapper_output_directory" \
+            -Dsonar.cfamily.build-wrapper-output="$OUTPUT_DIR" \
             -Dsonar.projectKey=slav41k_cpp-sensor-project \
             -Dsonar.organization=slav41k \
             -Dsonar.sources=. \
