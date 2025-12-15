@@ -1,4 +1,4 @@
-name: Build and Analyze (FINAL - Clean Build)
+name: Build and Analyze (FINAL - Force Build Wrapper)
 
 on:
   push:
@@ -53,17 +53,22 @@ jobs:
           # Крок 1: Генерація проекту CMake
           cmake -S . -B build -DCMAKE_CXX_STANDARD=17
           
-          # Крок 2: Обертання КОМАНДИ ЗБІРКИ (Фінальна робоча версія)
-          ./build-wrapper-linux-x86/build-wrapper-linux-x86-64 --out-dir build_wrapper_output_directory cmake --build build/
+          # Крок 2: Обертаємо MAKE (найбільш надійний спосіб)
+          # Заходимо у папку збірки і запускаємо make clean, потім make all під build-wrapper
+          cd build
+          
+          ../build-wrapper-linux-x86/build-wrapper-linux-x86-64 --out-dir build_wrapper_output_directory make clean all
+
+          cd $GITHUB_WORKSPACE
 
       # 5. Запускаємо сканування
       - name: Run Sonar Scanner Analysis
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
-          # Перевірка має спрацювати, якщо CMakelists.txt коректний
+          # Перевірка має спрацювати, оскільки ми примусово запустили make clean all
           if [ ! -f build_wrapper_output_directory/build-wrapper-output.json ]; then
-            echo "--- !!! КРИТИЧНА ПОМИЛКА: JSON-файл не створено. CMakelists.txt все ще містить помилку. !!! ---"
+            echo "--- !!! КРИТИЧНА ПОМИЛКА: JSON-файл не створено. Проблема у відсутності коду для аналізу. !!! ---"
             exit 1
           fi
 
