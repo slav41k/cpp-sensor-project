@@ -1,4 +1,4 @@
-name: Build and Analyze (FINAL FIX - Verbose Build)
+name: Build and Analyze (FINAL - Clean Build)
 
 on:
   push:
@@ -16,8 +16,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      # 1. Встановлюємо Java, компілятори, GTest
-      - name: Install Dependencies and GTest
+      # 1. Встановлюємо залежності
+      - name: Install Dependencies
         uses: actions/setup-java@v3
         with:
           java-version: 17
@@ -26,47 +26,44 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cmake g++ openjdk-17-jdk curl unzip libgtest-dev libgmock-dev
 
-      # 2. Встановлюємо SonarScanner (вручну)
-      - name: Install Sonar Scanner
+      # 2. Встановлюємо інструменти (Build Wrapper та Scanner)
+      - name: Setup Sonar Tools
         run: |
-          SONAR_SCANNER_URL="https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.7.0.2747-linux.zip"
-          curl -sSLo sonar-scanner.zip $SONAR_SCANNER_URL
-          unzip sonar-scanner.zip
-          
-      # 3. Встановлюємо Build Wrapper (вручну)
-      - name: Install Build Wrapper
-        run: |
-          BUILD_WRAPPER_URL="https://sonarcloud.io/static/cpp/build-wrapper-linux-x86.zip"
-          curl -sSLo build-wrapper.zip $BUILD_WRAPPER_URL
+          # Встановлюємо Build Wrapper
+          curl -sSLo build-wrapper.zip https://sonarcloud.io/static/cpp/build-wrapper-linux-x86.zip
           unzip build-wrapper.zip
           
-      # 4. Запускаємо компіляцію під обгорткою
-      - name: Run Build Wrapper and Compile
+          # Встановлюємо SonarScanner
+          curl -sSLo sonar-scanner.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.7.0.2747-linux.zip
+          unzip sonar-scanner.zip
+          
+      # 3. Збірка GTest (для успішного лінкування)
+      - name: Configure and Build GTest
         run: |
-          mkdir build
-          # Додатковий крок для GTest: збираємо його
           cd /usr/src/googletest
           sudo cmake .
           sudo make
           sudo mv lib/libgtest* /usr/lib/
-
           cd $GITHUB_WORKSPACE 
-          
+
+      # 4. Запускаємо компіляцію під обгорткою
+      - name: Run Build Wrapper and Compile
+        run: |
+          mkdir build
           # Крок 1: Генерація проекту CMake
           cmake -S . -B build -DCMAKE_CXX_STANDARD=17
           
-          # Крок 2: Обертання КОМАНДИ ЗБІРКИ (Final fix)
-          # ДОДАНО: VERBOSE=1 для виведення помилки лінкеру
-          ./build-wrapper-linux-x86/build-wrapper-linux-x86-64 --out-dir build_wrapper_output_directory cmake --build build/ --config Release -- VERBOSE=1
+          # Крок 2: Обертання КОМАНДИ ЗБІРКИ (Фінальна робоча версія)
+          ./build-wrapper-linux-x86/build-wrapper-linux-x86-64 --out-dir build_wrapper_output_directory cmake --build build/
 
-      # 5. Запускаємо сканування (фінальний етап)
+      # 5. Запускаємо сканування
       - name: Run Sonar Scanner Analysis
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
-          # ПЕРЕВІРКА: Перевіряємо, чи був створений файл
+          # Перевірка має спрацювати, якщо CMakelists.txt коректний
           if [ ! -f build_wrapper_output_directory/build-wrapper-output.json ]; then
-            echo "--- !!! КРИТИЧНА ПОМИЛКА: JSON-файл не створено. Проблема в КОДІ. !!! ---"
+            echo "--- !!! КРИТИЧНА ПОМИЛКА: JSON-файл не створено. CMakelists.txt все ще містить помилку. !!! ---"
             exit 1
           fi
 
@@ -79,4 +76,3 @@ jobs:
             -Dsonar.sources=. \
             -Dsonar.cxx.file.suffixes=.cpp,.h \
             -Dsonar.exclusions=build/**,frontend/**,tests/**
-

@@ -1,48 +1,39 @@
 cmake_minimum_required(VERSION 3.10)
 project(cpp-sensor-project VERSION 1.0)
 
-# Встановлюємо стандарт C++17 (як і в CI/CD)
+# Встановлюємо стандарт C++17
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-# Явно включаємо файли з SRC (основний код)
-file(GLOB SOURCE_FILES
-    "src/*.cpp"
-    "src/*.h"
+# --- БЛОК ОСНОВНОГО КОДУ ---
+# Створюємо статичну бібліотеку для основного коду
+add_library(sensor_lib STATIC 
+    # Вставте тут список усіх ваших .cpp файлів, які не є тестами!
+    # Наприклад: src/Analyzer.cpp
+    # Якщо у вас багато файлів, ви можете використати file(GLOB)
 )
-# main.cpp не потрібен для бібліотеки
 
-# 1. Основна ціль (СТАТИЧНА БІБЛІОТЕКА)
-# Бібліотека містить усі функції, які тестуються
-add_library(sensor_lib STATIC ${SOURCE_FILES})
-
-# 2. Фінальний виконуваний файл
-# Цей файл просто запускає main() і лінкується з бібліотекою
+# Створюємо виконуваний файл з main.cpp
 add_executable(app_run main.cpp)
 target_link_libraries(app_run sensor_lib)
 
-# 3. Цілі для тестів
+# --- БЛОК ТЕСТІВ ---
 enable_testing()
-
-# Явно включаємо файли з TESTS
-file(GLOB TEST_FILES
-    "tests/*.cpp"
-)
-
-# Обов'язково знаходимо GTest
 find_package(GTest REQUIRED)
 
 # Додаємо ціль для тестів
-add_executable(run_tests ${TEST_FILES})
+add_executable(run_tests 
+    # Вставте тут список усіх ваших .cpp файлів, які є тестами!
+    # Наприклад: tests/test_analyzer.cpp
+)
 
-# Лінкуємо тести з GTest, Gmock та нашою новою БІБЛІОТЕКОЮ
+# Лінкуємо тести з GTest та нашою бібліотекою
 target_link_libraries(run_tests 
     GTest::gtest_main 
     GTest::gmock 
-    sensor_lib  <-- Тепер це бібліотека, помилки не буде!
+    sensor_lib 
 )
 
-# Додаємо тести в CMake
 include(GoogleTest)
 gtest_discover_tests(run_tests)
 
