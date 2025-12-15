@@ -38,7 +38,7 @@ jobs:
       # 3. Встановлюємо Build Wrapper (вручну)
       - name: Install Build Wrapper
         run: |
-          BUILD_WRAPPER_URL="https://sonarcloud.io/static/cpp/build-wrapper-linux-x86.zip"
+          BUILD_WRAPPER_URL="https://sonarcloud.io/static/cpp./build-wrapper-linux-x86/build-wrapper-linux-x86-64 --out-dir build_wrapper_output_directory cmake -S . -B build"
           curl -sSLo build-wrapper.zip $BUILD_WRAPPER_URL
           unzip build-wrapper.zip
           export PATH="$PATH:$(pwd)/build-wrapper-linux-x86"
