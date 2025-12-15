@@ -24,7 +24,6 @@ jobs:
           distribution: 'zulu'
       - run: |
           sudo apt-get update
-          # Встановлюємо CMake, G++, та бібліотеки для GTest
           sudo apt-get install -y cmake g++ openjdk-17-jdk curl unzip libgtest-dev libgmock-dev
 
       # 2. Встановлюємо SonarScanner (вручну)
@@ -53,8 +52,11 @@ jobs:
 
           cd $GITHUB_WORKSPACE 
           
-          # Запускаємо build-wrapper з використанням С++17 (для сумісності)
-          ./build-wrapper-linux-x86/build-wrapper-linux-x86-64 --out-dir build_wrapper_output_directory cmake -S . -B build -DCMAKE_CXX_STANDARD=17
+          # Крок 1: Генерація проекту CMake
+          cmake -S . -B build -DCMAKE_CXX_STANDARD=17
+          
+          # Крок 2: Обертання КОМАНДИ ЗБІРКИ (Final fix)
+          ./build-wrapper-linux-x86/build-wrapper-linux-x86-64 --out-dir build_wrapper_output_directory cmake --build build/ --config Release
 
       # 5. Запускаємо сканування (фінальний етап)
       - name: Run Sonar Scanner Analysis
@@ -63,7 +65,7 @@ jobs:
         run: |
           # ПЕРЕВІРКА: Перевіряємо, чи був створений файл
           if [ ! -f build_wrapper_output_directory/build-wrapper-output.json ]; then
-            echo "ERROR: build-wrapper-output.json not found. Check CMake logs!"
+            echo "--- !!! КРИТИЧНА ПОМИЛКА: JSON-файл не створено. Проблема з компілятором або кодом. !!! ---"
             exit 1
           fi
 
