@@ -1,4 +1,4 @@
-name: Build and Analyze (FINAL - Force Rebuild)
+name: Build and Analyze (FINAL - CMake Build Target)
 
 on:
   push:
@@ -29,11 +29,8 @@ jobs:
       # 2. Встановлюємо інструменти (Build Wrapper та Scanner)
       - name: Setup Sonar Tools
         run: |
-          # Встановлюємо Build Wrapper
           curl -sSLo build-wrapper.zip https://sonarcloud.io/static/cpp/build-wrapper-linux-x86.zip
           unzip build-wrapper.zip
-          
-          # Встановлюємо SonarScanner
           curl -sSLo sonar-scanner.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.7.0.2747-linux.zip
           unzip sonar-scanner.zip
           
@@ -53,24 +50,21 @@ jobs:
           # Крок 1: Генерація проекту CMake (з прапорцем для VS Code)
           cmake -S . -B build -DCMAKE_CXX_STANDARD=17 -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
           
-          # Крок 2: Обертаємо MAKE clean all (це гарантує, що build-wrapper побачить компіляцію)
-          # Заходимо у папку збірки
-          cd build
-          
-          # ВИПРАВЛЕННЯ: Використовуємо make чи gmake залежно від системи, щоб гарантувати роботу.
-          # Оскільки на Ubuntu зазвичай є 'make', використовуємо його:
-          ../build-wrapper-linux-x86/build-wrapper-linux-x86-64 --out-dir build_wrapper_output_directory make clean all
-
-          cd $GITHUB_WORKSPACE
+          # Крок 2: Обертаємо команду збірки з примусовим rebuild
+          ./build-wrapper-linux-x86/build-wrapper-linux-x86-64 --out-dir build_wrapper_output_directory cmake --build build/ --target all
 
       # 5. Запускаємо сканування
       - name: Run Sonar Scanner Analysis
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
-          # Перевірка має спрацювати, оскільки make clean all примусово перезібрав код
+          # Перевірка має спрацювати, оскільки --target all примусово запустив компіляцію
           if [ ! -f build_wrapper_output_directory/build-wrapper-output.json ]; then
-            echo "--- !!! КРИТИЧНА ПОМИЛКА: JSON-файл не створено. Проблема у відсутності коду для аналізу. !!! ---"
+            echo "--- !!! КРИТИЧНА ПОМИЛКА: JSON-файл не створено. Build Wrapper не бачить компіляції. !!! ---"
+            # Якщо проблема тут, ми виведемо логи компіляції для діагностики:
+            echo "--- LOGS FAILED BUILD ---"
+            cmake --build build/ --target all
+            echo "--- END LOGS FAILED BUILD ---"
             exit 1
           fi
 

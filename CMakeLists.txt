@@ -33,7 +33,6 @@ target_link_libraries(run_tests
     sensor_lib 
 )
 
-# Додаємо тести в CMake
 include(GoogleTest)
 gtest_discover_tests(run_tests)
 
