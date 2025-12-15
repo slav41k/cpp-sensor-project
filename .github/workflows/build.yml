@@ -1,4 +1,4 @@
-name: Build and Analyze (FINAL FIX - Absolute Paths)
+name: Build and Analyze (FINAL FIX - Debug Mode)
 
 on:
   push:
@@ -32,8 +32,7 @@ jobs:
           SONAR_SCANNER_URL="https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.7.0.2747-linux.zip"
           curl -sSLo sonar-scanner.zip $SONAR_SCANNER_URL
           unzip sonar-scanner.zip
-          # Змінну PATH тепер не потрібно експортувати
-
+          
       # 3. Встановлюємо Build Wrapper (вручну)
       - name: Install Build Wrapper
         run: |
@@ -51,9 +50,9 @@ jobs:
           sudo make
           sudo mv lib/libgtest* /usr/lib/
 
-          cd $GITHUB_WORKSPACE # Повертаємось у папку проекту
+          cd $GITHUB_WORKSPACE 
           
-          # ВИПРАВЛЕНО: Абсолютний шлях до build-wrapper
+          # Запускаємо build-wrapper
           ./build-wrapper-linux-x86/build-wrapper-linux-x86-64 --out-dir build_wrapper_output_directory cmake -S . -B build
 
       # 5. Запускаємо сканування (фінальний етап)
@@ -61,8 +60,9 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
-          # ВИПРАВЛЕНО: Абсолютний шлях до sonar-scanner
+          # ДОДАНО: -X для налагодження та перевірки Build Wrapper Output
           ./sonar-scanner-4.7.0.2747-linux/bin/sonar-scanner \
+            -X \
             -Dsonar.host.url="https://sonarcloud.io" \
             -Dsonar.cfamily.build-wrapper-output="build_wrapper_output_directory" \
             -Dsonar.projectKey=slav41k_cpp-sensor-project \
