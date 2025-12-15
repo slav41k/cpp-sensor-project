@@ -1,4 +1,4 @@
-name: Build and Analyze (FINAL - CMake Build Target)
+name: Build and Analyze (FINAL - Ninja Generator)
 
 on:
   push:
@@ -16,7 +16,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      # 1. Встановлюємо залежності
+      # 1. Встановлюємо залежності (ДОДАЄМО NINJA)
       - name: Install Dependencies
         uses: actions/setup-java@v3
         with:
@@ -24,7 +24,7 @@ jobs:
           distribution: 'zulu'
       - run: |
           sudo apt-get update
-          sudo apt-get install -y cmake g++ openjdk-17-jdk curl unzip libgtest-dev libgmock-dev
+          sudo apt-get install -y cmake g++ openjdk-17-jdk curl unzip libgtest-dev libgmock-dev ninja-build
 
       # 2. Встановлюємо інструменти (Build Wrapper та Scanner)
       - name: Setup Sonar Tools
@@ -43,28 +43,24 @@ jobs:
           sudo mv lib/libgtest* /usr/lib/
           cd $GITHUB_WORKSPACE 
 
-      # 4. Запускаємо компіляцію під обгорткою
+      # 4. Запускаємо компіляцію під обгорткою (З Ninja)
       - name: Run Build Wrapper and Compile (FINAL LOGIC)
         run: |
           mkdir build
-          # Крок 1: Генерація проекту CMake (з прапорцем для VS Code)
-          cmake -S . -B build -DCMAKE_CXX_STANDARD=17 -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+          # Крок 1: Генерація проекту CMake з генератором Ninja
+          cmake -S . -B build -G "Ninja" -DCMAKE_CXX_STANDARD=17 -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON
           
-          # Крок 2: Обертаємо команду збірки з примусовим rebuild
-          ./build-wrapper-linux-x86/build-wrapper-linux-x86-64 --out-dir build_wrapper_output_directory cmake --build build/ --target all
+          # Крок 2: Обертаємо команду Ninja (Build Wrapper завжди бачить Ninja)
+          ./build-wrapper-linux-x86/build-wrapper-linux-x86-64 --out-dir build_wrapper_output_directory ninja -C build
 
       # 5. Запускаємо сканування
       - name: Run Sonar Scanner Analysis
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
-          # Перевірка має спрацювати, оскільки --target all примусово запустив компіляцію
+          # Перевірка
           if [ ! -f build_wrapper_output_directory/build-wrapper-output.json ]; then
-            echo "--- !!! КРИТИЧНА ПОМИЛКА: JSON-файл не створено. Build Wrapper не бачить компіляції. !!! ---"
-            # Якщо проблема тут, ми виведемо логи компіляції для діагностики:
-            echo "--- LOGS FAILED BUILD ---"
-            cmake --build build/ --target all
-            echo "--- END LOGS FAILED BUILD ---"
+            echo "--- !!! КРИТИЧНА ПОМИЛКА: JSON-файл не створено. NINJA не допоміг. !!! ---"
             exit 1
           fi
 
