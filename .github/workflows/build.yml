@@ -1,4 +1,4 @@
-name: Build and Analyze (FINAL FIX - Debug Mode)
+name: Build and Analyze (FINAL FIX - Critical Build Fix)
 
 on:
   push:
@@ -24,6 +24,7 @@ jobs:
           distribution: 'zulu'
       - run: |
           sudo apt-get update
+          # Встановлюємо CMake, G++, та бібліотеки для GTest
           sudo apt-get install -y cmake g++ openjdk-17-jdk curl unzip libgtest-dev libgmock-dev
 
       # 2. Встановлюємо SonarScanner (вручну)
@@ -52,17 +53,22 @@ jobs:
 
           cd $GITHUB_WORKSPACE 
           
-          # Запускаємо build-wrapper
-          ./build-wrapper-linux-x86/build-wrapper-linux-x86-64 --out-dir build_wrapper_output_directory cmake -S . -B build
+          # Запускаємо build-wrapper з використанням С++17 (для сумісності)
+          ./build-wrapper-linux-x86/build-wrapper-linux-x86-64 --out-dir build_wrapper_output_directory cmake -S . -B build -DCMAKE_CXX_STANDARD=17
 
       # 5. Запускаємо сканування (фінальний етап)
       - name: Run Sonar Scanner Analysis
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
-          # ДОДАНО: -X для налагодження та перевірки Build Wrapper Output
+          # ПЕРЕВІРКА: Перевіряємо, чи був створений файл
+          if [ ! -f build_wrapper_output_directory/build-wrapper-output.json ]; then
+            echo "ERROR: build-wrapper-output.json not found. Check CMake logs!"
+            exit 1
+          fi
+
+          # Запуск Sonar Scanner
           ./sonar-scanner-4.7.0.2747-linux/bin/sonar-scanner \
-            -X \
             -Dsonar.host.url="https://sonarcloud.io" \
             -Dsonar.cfamily.build-wrapper-output="build_wrapper_output_directory" \
             -Dsonar.projectKey=slav41k_cpp-sensor-project \
