@@ -1,4 +1,4 @@
-name: Build and Analyze (Manual Docker Setup)
+name: Build and Analyze (GTest and Manual Setup)
 
 on:
   push:
@@ -16,15 +16,18 @@ jobs:
         with:
           fetch-depth: 0
 
-      # 1. Встановлюємо Java (обов'язково для Sonar Scanner) та компілятори
-      - name: Install Dependencies
+      # 1. Встановлюємо Java, компілятори, GTest
+      - name: Install Dependencies and GTest
         uses: actions/setup-java@v3
         with:
           java-version: 17
           distribution: 'zulu'
-      - run: sudo apt-get update && sudo apt-get install -y cmake g++ openjdk-17-jdk curl unzip
+      - run: |
+          sudo apt-get update
+          # Встановлюємо CMake, G++, та бібліотеки для GTest
+          sudo apt-get install -y cmake g++ openjdk-17-jdk curl unzip libgtest-dev libgmock-dev
 
-      # 2. Встановлюємо SonarScanner (вручну, як архів)
+      # 2. Встановлюємо SonarScanner (вручну)
       - name: Install Sonar Scanner
         run: |
           SONAR_SCANNER_URL="https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.7.0.2747-linux.zip"
@@ -41,9 +44,18 @@ jobs:
           export PATH="$PATH:$(pwd)/build-wrapper-linux-x86"
 
       # 4. Запускаємо компіляцію під обгорткою
-      - name: Run Build Wrapper
+      - name: Run Build Wrapper and Compile
         run: |
           mkdir build
+          # Додатковий крок для GTest: збираємо його, якщо він не встановлений через apt-get
+          cd /usr/src/googletest
+          sudo cmake .
+          sudo make
+          sudo mv lib/libgtest* /usr/lib/
+
+          cd $GITHUB_WORKSPACE # Повертаємось у папку проекту
+          
+          # Запускаємо нашу компіляцію
           build-wrapper-linux-x86-64 --out-dir build_wrapper_output_directory cmake -S . -B build
 
       # 5. Запускаємо сканування (фінальний етап)
@@ -58,5 +70,4 @@ jobs:
             -Dsonar.organization=slav41k \
             -Dsonar.sources=. \
             -Dsonar.cxx.file.suffixes=.cpp,.h \
-            -Dsonar.exclusions=build/**,frontend/**
-
+            -Dsonar.exclusions=build/**,frontend/**,tests/**
